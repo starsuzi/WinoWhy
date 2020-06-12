@@ -349,10 +349,8 @@ elif args.model == "roberta":
         current_model = RobertaLarge.from_pretrained(args.model_weight)
 
 current_model.to(device)
-test_optimizer = torch.optim.Adam(current_model.parameters(), lr=args.lr)
-#test_optimizer = torch.optim.SGD(current_model.parameters(), lr=args.lr)
-loss_func = torch.nn.SoftMarginLoss()
-#loss_func = torch.nn.CrossEntropyLoss()
+test_optimizer = torch.optim.SGD(current_model.parameters(), lr=args.lr)
+loss_func = torch.nn.CrossEntropyLoss()
 
 
 all_data = DataLoader('./dataset/dataset.csv', args)
