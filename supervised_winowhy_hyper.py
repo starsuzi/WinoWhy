@@ -350,8 +350,8 @@ elif args.model == "roberta":
 
 current_model.to(device)
 test_optimizer = torch.optim.SGD(current_model.parameters(), lr=args.lr)
-loss_func = torch.nn.CrossEntropyLoss()
-
+#loss_func = torch.nn.CrossEntropyLoss()
+loss_func = torch.nn.SoftMarginLoss()
 
 all_data = DataLoader('./dataset/dataset.csv', args)
 
