@@ -91,16 +91,16 @@ class DataLoader:
 
         self.test_df,self.train_df, self.val_df, self.val_test_df = pick_training_and_testing_folds(self.five_folds, args.fold)
 
-        self.train_set = self.tensorize_example(self.train_df)
+        self.train_label_set, self.train_set = self.tensorize_example(self.train_df)
         print('successfully loaded %d examples for training data' % len(self.train_set))
 
-        self.test_set = self.tensorize_example(self.test_df)
+        self.test_label_set, self.test_set = self.tensorize_example(self.test_df)
         print('successfully loaded %d examples for test data' % len(self.test_set))
 
-        self.val_set = self.tensorize_example(self.val_df)
+        self.val_label_set, self.val_set = self.tensorize_example(self.val_df)
         print('successfully loaded %d examples for val data' % len(self.val_set))
 
-        self.val_test_set = self.tensorize_example(self.val_test_df)
+        self.val_test_label_set, self.val_test_set = self.tensorize_example(self.val_test_df)
         print('successfully loaded %d examples for val_test data' % len(self.val_test_set))
         
 
@@ -125,10 +125,12 @@ class DataLoader:
 
     def tensorize_example(self, initial_dataframe):
         tensorized_dataset = list()
+        labels_dataset = list()
         
         for i in range(initial_dataframe.shape[0]):
 
             tensorized_examples_for_one_frame = list()
+            labels_for_one_frame = list()
 
             sent1 = initial_dataframe.iloc[i]["wnli_sent1"]
             sent2 = initial_dataframe.iloc[i]["wnli_sent2"]
@@ -147,9 +149,12 @@ class DataLoader:
                     'label': torch.tensor([int(label)]).to(device)
                     })
 
-            tensorized_dataset += tensorized_examples_for_one_frame
+            labels_for_one_frame.append({'label': torch.tensor([int(label)]).to(device)})
 
-        return tensorized_dataset
+            tensorized_dataset += tensorized_examples_for_one_frame
+            labels_dataset += labels_for_one_frame
+
+        return tensorized_dataset, labels_dataset
 
 
 class LSTM(torch.nn.Module):
@@ -378,6 +383,8 @@ loss_func = torch.nn.CrossEntropyLoss()
 
 all_data = DataLoader('./dataset/dataset.csv', args)
 
+print(all_data.val_test_label_set)
+
 best_dev_performance = 0
 final_performance = 0
 accuracy_by_type = dict()
@@ -400,7 +407,7 @@ print("Best val performance:", final_performance)
 
 best_val_model_cal = ModelWithTemperature(best_val_model)
 valid_loader = torch.utils.data.DataLoader(all_data.val_test_set, pin_memory=True, 
-                                               sampler=SubsetRandomSampler(valid_indices))
+                                               sampler=SubsetRandomSampler(all_data.val_test_set))
 best_val_model_cal.set_temperature(valid_loader)
 
 
