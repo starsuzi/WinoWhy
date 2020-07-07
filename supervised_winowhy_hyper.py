@@ -66,20 +66,14 @@ def pick_training_and_testing_folds(five_folds,fold_num):
             test_fold = five_folds[i]
             print('len')
             print(len(test_fold))
-    
-            val_fold = test_fold[:int((len(test_fold)+1)*.50)] #Remaining 80% to training set
-            test_fold = test_fold[int((len(test_fold)+1)*.50):] #Splits 20% data to test set
-            val_test_fold = five_folds[i]    
-
-            print('len')
-            print(len(val_fold))
-
+            test_fold = five_folds[i]
+            
         else:
             train_folds.append(five_folds[i])
 
     train_fold = pd.concat(train_folds)
 
-    return test_fold, train_fold, val_fold, val_test_fold
+    return test_fold, train_fold
 
 class DataLoader:
     def __init__(self, data_path, args):
@@ -89,22 +83,14 @@ class DataLoader:
 
         self.five_folds = output_five_folds(self.cls_df, method=args.method, shuffle=False, usage="wnli")
 
-        self.test_df,self.train_df, self.val_df, self.val_test_df = pick_training_and_testing_folds(self.five_folds, args.fold)
+        self.test_df,self.train_df = pick_training_and_testing_folds(self.five_folds, args.fold)
 
         self.train_label_set, self.train_set = self.tensorize_example(self.train_df)
         print('successfully loaded %d examples for training data' % len(self.train_set))
 
         self.test_label_set, self.test_set = self.tensorize_example(self.test_df)
         print('successfully loaded %d examples for test data' % len(self.test_set))
-
-        self.val_label_set, self.val_set = self.tensorize_example(self.val_df)
-        print('successfully loaded %d examples for val data' % len(self.val_set))
-
-        self.val_test_label_set, self.val_test_set = self.tensorize_example(self.val_test_df)
-        print('successfully loaded %d examples for val_test data' % len(self.val_test_set))
         
-
-
     def load_embedding_dict(self, path):
         print("Loading word embeddings from {}...".format(path))
         default_embedding = numpy.zeros(300)
@@ -149,12 +135,12 @@ class DataLoader:
                     'label': torch.tensor([int(label)]).to(device)
                     })
 
-            labels_for_one_frame.append({'label': torch.tensor([int(label)]).to(device)})
+            labels_for_one_frame.append(torch.tensor([int(label)]).to(device))
 
             tensorized_dataset += tensorized_examples_for_one_frame
             labels_dataset += labels_for_one_frame
 
-        return tensorized_dataset, labels_dataset
+        return labels_dataset, tensorized_dataset
 
 
 class LSTM(torch.nn.Module):
@@ -383,7 +369,7 @@ loss_func = torch.nn.CrossEntropyLoss()
 
 all_data = DataLoader('./dataset/dataset.csv', args)
 
-print(all_data.val_test_label_set)
+print(all_data.test_set)
 
 best_dev_performance = 0
 final_performance = 0
@@ -395,7 +381,7 @@ for i in range(args.epochs):
     train(current_model, all_data.train_set)
     #print(type(current_model))
     
-    val_model, val_performance = test(current_model, all_data.val_test_set)
+    val_model, val_performance = test(current_model, all_data.test_set)
     print('val accuracy:', val_performance)
     if val_performance >= best_dev_performance:
         print('New best val performance!!!')
@@ -406,8 +392,8 @@ for i in range(args.epochs):
 print("Best val performance:", final_performance)
 
 best_val_model_cal = ModelWithTemperature(best_val_model)
-valid_loader = torch.utils.data.DataLoader(all_data.val_test_set, pin_memory=True, 
-                                               sampler=SubsetRandomSampler(all_data.val_test_set))
+valid_loader = torch.utils.data.DataLoader(all_data.test_set, pin_memory=True, 
+                                               sampler=SubsetRandomSampler(all_data.test_set))
 best_val_model_cal.set_temperature(valid_loader)
 
 
