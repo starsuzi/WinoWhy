@@ -18,7 +18,7 @@ import numpy as np
 
 from sklearn.utils import shuffle
 import random
-
+from torch.utils.data.sampler import SubsetRandomSampler
 from temperature_scaling import ModelWithTemperature
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0su" #args.gpu
@@ -339,8 +339,8 @@ parser.add_argument("--fold", default=0, type=int, required=False,
                     help="testing which fold")
 parser.add_argument("--max_len", default=128, type=int, required=False,
                     help="number of words")
-parser.add_argument("--epochs", default=15, type=int, required=False,
-                    help="number of epochs")
+parser.add_argument("--epochs", default=1, type=int, required=False,
+                    help="number of epochs") #15
 parser.add_argument("--model_weight", default='gpt2', type=str, required=False,
                     help="gpt2, gpt2-large, roberta-base, roberta-large")
 
@@ -399,7 +399,9 @@ for i in range(args.epochs):
 print("Best val performance:", final_performance)
 
 best_val_model_cal = ModelWithTemperature(best_val_model)
-best_val_model_cal.set_temperature(all_data.val_test_set)
+valid_loader = torch.utils.data.DataLoader(all_data.val_test_set, pin_memory=True, 
+                                               sampler=SubsetRandomSampler(valid_indices))
+best_val_model_cal.set_temperature(valid_loader)
 
 
 print('end')
