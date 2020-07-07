@@ -21,7 +21,7 @@ import random
 
 from temperature_scaling import ModelWithTemperature
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" #args.gpu
+os.environ["CUDA_VISIBLE_DEVICES"] = "0su" #args.gpu
 
 def output_five_folds(cls_df, method, shuffle,usage):
     """
@@ -69,6 +69,7 @@ def pick_training_and_testing_folds(five_folds,fold_num):
     
             val_fold = test_fold[:int((len(test_fold)+1)*.50)] #Remaining 80% to training set
             test_fold = test_fold[int((len(test_fold)+1)*.50):] #Splits 20% data to test set
+            val_test_fold = five_folds[i]    
 
             print('len')
             print(len(val_fold))
@@ -78,7 +79,7 @@ def pick_training_and_testing_folds(five_folds,fold_num):
 
     train_fold = pd.concat(train_folds)
 
-    return test_fold, train_fold, val_fold
+    return test_fold, train_fold, val_fold, val_test_fold
 
 class DataLoader:
     def __init__(self, data_path, args):
@@ -88,7 +89,7 @@ class DataLoader:
 
         self.five_folds = output_five_folds(self.cls_df, method=args.method, shuffle=False, usage="wnli")
 
-        self.test_df,self.train_df, self.val_df = pick_training_and_testing_folds(self.five_folds, args.fold)
+        self.test_df,self.train_df, self.val_df, self.val_test_df = pick_training_and_testing_folds(self.five_folds, args.fold)
 
         self.train_set = self.tensorize_example(self.train_df)
         print('successfully loaded %d examples for training data' % len(self.train_set))
@@ -98,6 +99,10 @@ class DataLoader:
 
         self.val_set = self.tensorize_example(self.val_df)
         print('successfully loaded %d examples for val data' % len(self.val_set))
+
+        self.val_test_set = self.tensorize_example(self.val_test_df)
+        print('successfully loaded %d examples for val_test data' % len(self.val_test_set))
+        
 
 
     def load_embedding_dict(self, path):
@@ -384,15 +389,17 @@ for i in range(args.epochs):
     #print(type(current_model))
     
     val_model, val_performance = test(current_model, all_data.val_set)
-    print('Test accuracy:', val_performance)
+    print('val accuracy:', val_performance)
     if val_performance >= best_dev_performance:
-        print('New best performance!!!')
+        print('New best val performance!!!')
         best_dev_performance = val_performance
         final_performance = val_performance
         best_val_model = val_model
 
-print("Best performance:", final_performance)
-#model = ModelWithTemperature(orig_model)
-print('calibration result :', )
+print("Best val performance:", final_performance)
+
+best_val_model_cal = ModelWithTemperature(best_val_model)
+best_val_model_cal.set_temperature(all_data.val_set)
+
 
 print('end')
