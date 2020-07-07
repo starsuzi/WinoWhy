@@ -388,7 +388,7 @@ for i in range(args.epochs):
     train(current_model, all_data.train_set)
     #print(type(current_model))
     
-    val_model, val_performance = test(current_model, all_data.val_set)
+    val_model, val_performance = test(current_model, all_data.val_test_set)
     print('val accuracy:', val_performance)
     if val_performance >= best_dev_performance:
         print('New best val performance!!!')
@@ -399,7 +399,7 @@ for i in range(args.epochs):
 print("Best val performance:", final_performance)
 
 best_val_model_cal = ModelWithTemperature(best_val_model)
-best_val_model_cal.set_temperature(all_data.val_set)
+best_val_model_cal.set_temperature(all_data.val_test_set)
 
 
 print('end')
