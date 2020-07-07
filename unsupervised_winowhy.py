@@ -287,9 +287,20 @@ def test(model, data):
     model.eval()
     for tmp_example in tqdm(data):
         final_prediction = model(sent1=tmp_example['gpt2_sent1'], sent2=tmp_example['gpt2_sent2'])
+        
         if tmp_example['label'].data[0] == 1:
             # current example is positive
             if final_prediction.data[0][1] >= final_prediction.data[0][0]:
+                #print('data')
+                #print(data)
+                print('tmp_example["label"].data[0]')
+                print(tmp_example['label'].data[0])
+                print('final_prediction')
+                print(final_prediction)
+                print("final_prediction.data[0][1]")
+                print(final_prediction.data[0][1])
+                print('final_prediction.data[0][0]')
+                print(final_prediction.data[0][0])
                 correct_count += 1
         else:
             # current example is negative
@@ -351,7 +362,7 @@ elif args.model == "roberta":
 current_model.to(device)
 test_optimizer = torch.optim.SGD(current_model.parameters(), lr=args.lr)
 loss_func = torch.nn.CrossEntropyLoss()
-
+#loss_func = torch.nn.SoftMarginLoss()
 
 all_data = DataLoader('./dataset/dataset.csv', args)
 

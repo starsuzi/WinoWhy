@@ -17,6 +17,11 @@ import pandas as pd
 import numpy as np
 
 from sklearn.utils import shuffle
+import random
+
+from temperature_scaling import ModelWithTemperature
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1" #args.gpu
 
 def output_five_folds(cls_df, method, shuffle,usage):
     """
@@ -59,12 +64,21 @@ def pick_training_and_testing_folds(five_folds,fold_num):
     for i in range(len(five_folds)):
         if i == fold_num:
             test_fold = five_folds[i]
+            print('len')
+            print(len(test_fold))
+    
+            val_fold = test_fold[:int((len(test_fold)+1)*.50)] #Remaining 80% to training set
+            test_fold = test_fold[int((len(test_fold)+1)*.50):] #Splits 20% data to test set
+
+            print('len')
+            print(len(val_fold))
+
         else:
             train_folds.append(five_folds[i])
 
     train_fold = pd.concat(train_folds)
 
-    return test_fold, train_fold
+    return test_fold, train_fold, val_fold
 
 class DataLoader:
     def __init__(self, data_path, args):
@@ -74,13 +88,17 @@ class DataLoader:
 
         self.five_folds = output_five_folds(self.cls_df, method=args.method, shuffle=False, usage="wnli")
 
-        self.test_df,self.train_df = pick_training_and_testing_folds(self.five_folds, args.fold)
+        self.test_df,self.train_df, self.val_df = pick_training_and_testing_folds(self.five_folds, args.fold)
 
         self.train_set = self.tensorize_example(self.train_df)
         print('successfully loaded %d examples for training data' % len(self.train_set))
 
         self.test_set = self.tensorize_example(self.test_df)
         print('successfully loaded %d examples for test data' % len(self.test_set))
+
+        self.val_set = self.tensorize_example(self.val_df)
+        print('successfully loaded %d examples for val data' % len(self.val_set))
+
 
     def load_embedding_dict(self, path):
         print("Loading word embeddings from {}...".format(path))
@@ -296,13 +314,13 @@ def test(model, data):
             if final_prediction.data[0][1] <= final_prediction.data[0][0]:
                 correct_count += 1
 
-    return correct_count / len(data)
+    return model, (correct_count / len(data))
 
 
 parser = argparse.ArgumentParser()
 
 ## parameters
-parser.add_argument("--gpu", default='0', type=str, required=False,
+parser.add_argument("--gpu", default='1', type=str, required=False,
                     help="choose which gpu to use")
 parser.add_argument("--model", default='gpt2', type=str, required=False,
                     help="choose the model to test")
@@ -325,7 +343,7 @@ args = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+#os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('current device:', device)
@@ -350,25 +368,31 @@ elif args.model == "roberta":
 
 current_model.to(device)
 test_optimizer = torch.optim.SGD(current_model.parameters(), lr=args.lr)
-#loss_func = torch.nn.CrossEntropyLoss()
-loss_func = torch.nn.SoftMarginLoss()
+loss_func = torch.nn.CrossEntropyLoss()
+#loss_func = torch.nn.SoftMarginLoss()
 
 all_data = DataLoader('./dataset/dataset.csv', args)
 
 best_dev_performance = 0
 final_performance = 0
 accuracy_by_type = dict()
+best_val_model = dict()
 
 for i in range(args.epochs):
     print('Iteration:', i + 1, '|', 'Current best performance:', final_performance)
     train(current_model, all_data.train_set)
-    test_performance = test(current_model, all_data.test_set)
-    print('Test accuracy:', test_performance)
-    if test_performance >= best_dev_performance:
+    #print(type(current_model))
+    
+    val_model, val_performance = test(current_model, all_data.val_set)
+    print('Test accuracy:', val_performance)
+    if val_performance >= best_dev_performance:
         print('New best performance!!!')
-        best_dev_performance = test_performance
-        final_performance = test_performance
+        best_dev_performance = val_performance
+        final_performance = val_performance
+        best_val_model = val_model
 
 print("Best performance:", final_performance)
+#model = ModelWithTemperature(orig_model)
+print('calibration result :', )
 
 print('end')
