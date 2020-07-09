@@ -21,7 +21,7 @@ import random
 from torch.utils.data.sampler import SubsetRandomSampler
 from temperature_scaling import ModelWithTemperature
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0su" #args.gpu
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" #args.gpu
 
 def output_five_folds(cls_df, method, shuffle,usage):
     """
@@ -85,10 +85,10 @@ class DataLoader:
 
         self.test_df,self.train_df = pick_training_and_testing_folds(self.five_folds, args.fold)
 
-        self.train_label_set, self.train_set = self.tensorize_example(self.train_df)
+        self.train_label_set, self.train_set, self.train_only_data_set = self.tensorize_example(self.train_df)
         print('successfully loaded %d examples for training data' % len(self.train_set))
 
-        self.test_label_set, self.test_set = self.tensorize_example(self.test_df)
+        self.test_label_set, self.test_set, self.test_only_data_set = self.tensorize_example(self.test_df)
         print('successfully loaded %d examples for test data' % len(self.test_set))
         
     def load_embedding_dict(self, path):
@@ -112,11 +112,13 @@ class DataLoader:
     def tensorize_example(self, initial_dataframe):
         tensorized_dataset = list()
         labels_dataset = list()
+        tensorized_data = list()
         
         for i in range(initial_dataframe.shape[0]):
 
             tensorized_examples_for_one_frame = list()
             labels_for_one_frame = list()
+            tensorized_data_for_one_frame = list()
 
             sent1 = initial_dataframe.iloc[i]["wnli_sent1"]
             sent2 = initial_dataframe.iloc[i]["wnli_sent2"]
@@ -135,12 +137,22 @@ class DataLoader:
                     'label': torch.tensor([int(label)]).to(device)
                     })
 
-            labels_for_one_frame.append(torch.tensor([int(label)]).to(device))
+            tensorized_data_for_one_frame.append(
+                {'gpt2_sent1':torch.tensor(lm_tokenized_sent1).to(device),
+                    'gpt2_sent2': torch.tensor(lm_tokenized_sent2).to(device),
+                    'bert_sent1':torch.tensor(bert_tokenized_sent1).to(device),
+                    'bert_sent2': torch.tensor(bert_tokenized_sent2).to(device)
+                    }
+            )
+            
+            labels_for_one_frame.append(torch.tensor(int(label)).to(device))
 
             tensorized_dataset += tensorized_examples_for_one_frame
             labels_dataset += labels_for_one_frame
+            tensorized_data += tensorized_data_for_one_frame
 
-        return labels_dataset, tensorized_dataset
+
+        return labels_dataset, tensorized_dataset, tensorized_data
 
 
 class LSTM(torch.nn.Module):
@@ -369,7 +381,7 @@ loss_func = torch.nn.CrossEntropyLoss()
 
 all_data = DataLoader('./dataset/dataset.csv', args)
 
-print(all_data.test_set)
+print(all_data.test_label_set)
 
 best_dev_performance = 0
 final_performance = 0
@@ -378,8 +390,10 @@ best_val_model = dict()
 
 for i in range(args.epochs):
     print('Iteration:', i + 1, '|', 'Current best performance:', final_performance)
+    continue
     train(current_model, all_data.train_set)
     #print(type(current_model))
+    
     
     val_model, val_performance = test(current_model, all_data.test_set)
     print('val accuracy:', val_performance)
@@ -392,8 +406,16 @@ for i in range(args.epochs):
 print("Best val performance:", final_performance)
 
 best_val_model_cal = ModelWithTemperature(best_val_model)
-valid_loader = torch.utils.data.DataLoader(all_data.test_set, pin_memory=True, 
-                                               sampler=SubsetRandomSampler(all_data.test_set))
+
+
+#X_val = torch.tensor(all_data.test_only_data_set).to(device)
+#y_val = torch.tensor(all_data.test_label_set).to(device)
+
+#ds = torch.utils.data.TensorDataset(all_data.test_only_data_set, all_data.test_label_set)
+valid_loader = torch.utils.data.DataLoader(all_data.test_set, batch_size = 1)
+print(valid_loader)
+for i in valid_loader:
+    print(i)
 best_val_model_cal.set_temperature(valid_loader)
 
 
