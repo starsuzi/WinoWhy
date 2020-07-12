@@ -21,7 +21,7 @@ import random
 from torch.utils.data.sampler import SubsetRandomSampler
 from temperature_scaling import ModelWithTemperature
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" #args.gpu
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0" #args.gpu
 
 def output_five_folds(cls_df, method, shuffle,usage):
     """
@@ -342,7 +342,7 @@ parser.add_argument("--fold", default=0, type=int, required=False,
                     help="testing which fold")
 parser.add_argument("--max_len", default=128, type=int, required=False,
                     help="number of words")
-parser.add_argument("--epochs", default=1, type=int, required=False,
+parser.add_argument("--epochs", default=15, type=int, required=False,
                     help="number of epochs") #15
 parser.add_argument("--model_weight", default='gpt2', type=str, required=False,
                     help="gpt2, gpt2-large, roberta-base, roberta-large")
@@ -381,7 +381,7 @@ loss_func = torch.nn.CrossEntropyLoss()
 
 all_data = DataLoader('./dataset/dataset.csv', args)
 
-print(all_data.test_label_set)
+#print(all_data.test_label_set)
 
 best_dev_performance = 0
 final_performance = 0
@@ -390,33 +390,42 @@ best_val_model = dict()
 
 for i in range(args.epochs):
     print('Iteration:', i + 1, '|', 'Current best performance:', final_performance)
-    continue
+    #continue
     train(current_model, all_data.train_set)
     #print(type(current_model))
     
     
     val_model, val_performance = test(current_model, all_data.test_set)
+    #print(val_model)
+    #print(type(val_model))
     print('val accuracy:', val_performance)
     if val_performance >= best_dev_performance:
         print('New best val performance!!!')
         best_dev_performance = val_performance
         final_performance = val_performance
         best_val_model = val_model
-
+        
 print("Best val performance:", final_performance)
 
+
+#print(type(best_val_model))
 best_val_model_cal = ModelWithTemperature(best_val_model)
+#print(best_val_model_cal)
+best_val_model_cal.set_temperature(all_data.test_set)
+
+#for i in all_data.test_set:
+#    print(i)
 
 
 #X_val = torch.tensor(all_data.test_only_data_set).to(device)
 #y_val = torch.tensor(all_data.test_label_set).to(device)
 
 #ds = torch.utils.data.TensorDataset(all_data.test_only_data_set, all_data.test_label_set)
-valid_loader = torch.utils.data.DataLoader(all_data.test_set, batch_size = 1)
+'''valid_loader = torch.utils.data.DataLoader(all_data.test_set, batch_size = 1)
 print(valid_loader)
 for i in valid_loader:
     print(i)
-best_val_model_cal.set_temperature(valid_loader)
+best_val_model_cal.set_temperature(valid_loader)'''
 
 
 print('end')

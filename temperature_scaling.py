@@ -16,8 +16,9 @@ class ModelWithTemperature(nn.Module):
         self.model = model
         self.temperature = nn.Parameter(torch.ones(1) * 1.5)
 
-    def forward(self, input):
-        logits = self.model(input)
+    def forward(self, s1, s2):
+
+        logits = self.model(sent1=s1, sent2=s2)
         return self.temperature_scale(logits)
 
     def temperature_scale(self, logits):
@@ -43,11 +44,30 @@ class ModelWithTemperature(nn.Module):
         logits_list = []
         labels_list = []
         with torch.no_grad():
-            for input, label in valid_loader:
-                input = input.cuda()
-                logits = self.model(input)
+            #for input, label in valid_loader:
+            for tmp_example in valid_loader:
+
+                #s1=tmp_example['gpt2_sent1']
+                #s2=tmp_example['gpt2_sent2']
+
+                #print(sent1)
+                #print(type(sent1))
+
+                #s1 = s1.cuda()
+                #s2 = s2.cuda()
+
+                #print(tmp_example['gpt2_sent1'])
+                #print(type(sent1))
+                #print(sent1)
+                #print(self.model(sent1=tmp_example['gpt2_sent1'], sent2=tmp_example['gpt2_sent2']))
+                #print(type(tmp_example['gpt2_sent1']))
+                #print(tmp_example['gpt2_sent1'])
+                #print(self.model())
+                logits = self.model(sent1=tmp_example['gpt2_sent1'], sent2=tmp_example['gpt2_sent2'])
+
                 logits_list.append(logits)
-                labels_list.append(label)
+                labels_list.append(tmp_example['label'])
+
             logits = torch.cat(logits_list).cuda()
             labels = torch.cat(labels_list).cuda()
 
